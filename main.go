@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,9 @@ import (
 
 	"github.com/gorilla/mux"
 )
+
+//go:embed templates/index.html
+var templatesFS embed.FS
 
 type FileInfo struct {
 	Name          string    `json:"name"`
@@ -58,7 +62,7 @@ func saveData() {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("templates/index.html")
+	tmpl, err := template.ParseFS(templatesFS, "templates/index.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
