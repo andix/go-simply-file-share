@@ -109,7 +109,13 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	files = append(files, newFile)
 	saveData()
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Check if request is AJAX (has XMLHttpRequest header)
+	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "File uploaded successfully"})
+	} else {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {

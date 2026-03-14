@@ -10,12 +10,15 @@
     <div class="container mt-5">
         <h1 class="mb-4">Simple File Share</h1>
         
-        <form action="/upload" method="post" enctype="multipart/form-data" class="mb-4">
+        <form id="uploadForm" class="mb-4">
             <div class="mb-3">
                 <label for="file" class="form-label">Choose file to upload</label>
                 <input type="file" class="form-control" id="file" name="file" required>
             </div>
-            <button type="submit" class="btn btn-primary">Upload</button>
+            <button type="submit" class="btn btn-primary" id="uploadBtn">Upload</button>
+            <div class="progress mt-3" id="progressContainer" style="display: none; height: 30px; border: 1px solid #dee2e6; border-radius: 5px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%; font-weight: bold; color: white;" id="progressBar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            </div>
         </form>
 
         <h2>Uploaded Files</h2>
@@ -65,11 +68,125 @@
         // Load files on page load
         loadFiles();
 
-        // Auto refresh after upload (since redirect happens)
-        window.addEventListener('load', function() {
-            if (window.location.search.includes('uploaded')) {
-                loadFiles();
+        // Hot reload: check grid every 10 seconds
+        setInterval(loadFiles, 10000);
+
+        // Handle file upload with progress
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file');
+                return;
             }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            // Show progress bar immediately
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            console.log('Progress bar shown, starting animation...');
+            
+            // Start progress animation immediately
+            let progressInterval;
+            let fakeProgress = 0;
+            progressInterval = setInterval(() => {
+                if (fakeProgress < 90) {
+                    fakeProgress += Math.random() * 5 + 2; // Random increment between 2-7%
+                    if (fakeProgress > 90) fakeProgress = 90;
+                    progressBar.style.width = fakeProgress + '%';
+                    progressBar.textContent = Math.round(fakeProgress) + '%';
+                    console.log('Fake progress:', fakeProgress + '%');
+                }
+            }, 150);
+            
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    // Override fake progress with real progress if available
+                    fakeProgress = percentComplete;
+                    progressBar.style.width = percentComplete + '%';
+                    progressBar.textContent = Math.round(percentComplete) + '%';
+                    console.log('Upload progress:', percentComplete + '%');
+                }
+            });
+            
+            xhr.upload.addEventListener('loadstart', function() {
+                console.log('Upload started');
+            });
+            
+            xhr.upload.addEventListener('loadend', function() {
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                console.log('Upload loadend');
+            });
+            
+            xhr.addEventListener('load', function() {
+                clearInterval(progressInterval);
+                if (xhr.status === 200) {
+                    // Success
+                    progressBar.style.width = '100%';
+                    progressBar.textContent = '100%';
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-success');
+                    uploadBtn.textContent = 'Upload Complete!';
+                    console.log('Upload successful');
+                    fileInput.value = '';
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                        progressBar.classList.remove('bg-success');
+                        progressBar.classList.add('progress-bar-animated');
+                        uploadBtn.disabled = false;
+                        uploadBtn.textContent = 'Upload';
+                        loadFiles(); // Refresh grid immediately
+                    }, 1500);
+                } else {
+                    clearInterval(progressInterval);
+                    progressBar.classList.add('bg-danger');
+                    uploadBtn.textContent = 'Upload Failed';
+                    console.log('Upload failed with status:', xhr.status);
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = '0%';
+                        progressBar.classList.remove('bg-danger');
+                        uploadBtn.disabled = false;
+                        uploadBtn.textContent = 'Upload';
+                    }, 2000);
+                }
+            });
+            
+            xhr.addEventListener('error', function() {
+                clearInterval(progressInterval);
+                progressBar.classList.add('bg-danger');
+                uploadBtn.textContent = 'Upload Failed';
+                console.log('Upload error occurred');
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.width = '0%';
+                    progressBar.textContent = '0%';
+                    progressBar.classList.remove('bg-danger');
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = 'Upload';
+                }, 2000);
+            });
+            
+            xhr.open('POST', '/upload');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send(formData);
         });
     </script>
 </body>
